@@ -1,24 +1,25 @@
 # frozen_string_literal: true
 
-def tick(args)
-  block_width = 50
+def random_hex_color
+  '#' + 3.times.map { Numeric.rand(0..255).to_s(16).rjust(2, '0') }.join
+end
 
+def tick(args)
+  # GTK.slowmo! 60
+
+  block_width = 50
   # Initialize state
   args.state.rotation ||= 0
   args.state.x ||= 576
   args.state.y ||= 100
   args.state.block_arr ||= []
-  args.state.just_right_mouse_downed_rect ||= nil
+  args.state.just_right_mouse_downed_rect = nil
   args.state.block_relative_grab_anchor = nil
-
   handle_mouse_click(args, block_width)
   handle_right_mouse_down(args)
   handle_right_mouse_held(args)
-
-  args.outputs.labels << [580, 400, 'Hello World!']
-
+  args.outputs.labels << [580, 400, "#{args.state.grabbed_block}"]
   draw_and_update_blocks(args, block_width)
-
   args.state.just_right_mouse_downed_rect = nil
 end
 
@@ -27,24 +28,24 @@ def handle_mouse_click(args, block_width)
 
   x_place_at = args.inputs.mouse.click.point.x - block_width / 2
   y_place_at = args.inputs.mouse.click.point.y - block_width / 2
-
   args.state.block_arr << {
     x: x_place_at,
     y: y_place_at,
     w: block_width,
-    h: block_width
+    h: block_width,
+    customData: { id: random_hex_color }
   }
 end
 
 def handle_right_mouse_down(args)
-  if args.inputs.mouse.buttons.right.down
-    args.state.just_right_mouse_downed_rect = {
-      x: args.inputs.mouse.buttons.right.down.x,
-      y: args.inputs.mouse.buttons.right.down.y,
-      w: 1,
-      h: 1
-    }
-  end
+  return unless args.inputs.mouse.buttons.right.down
+
+  args.state.just_right_mouse_downed_rect = {
+    x: args.inputs.mouse.buttons.right.down.x,
+    y: args.inputs.mouse.buttons.right.down.y,
+    w: 1,
+    h: 1
+  }
 end
 
 def handle_right_mouse_held(args)
@@ -64,13 +65,38 @@ end
 def draw_and_update_blocks(args, block_width)
   args.state.block_arr.each do |block|
     handle_block_grab(args, block)
+    if args.state.grabbed_block
+      puts "grabbed_block_id: #{args.state.grabbed_block.customData.id}"
+    end
+    args.outputs.labels << [block.x, block.y, block.customData.id]
+
     handle_block_drag(args, block)
     handle_block_collision_and_position(args, block)
-    args.outputs.sprites << [
-      block[:x], block[:y], block_width, block_width,
-      'sprites/blocks4.png', block[:rotation]
-    ]
+    next if args.state.grabbed_block == block
+
+    block[:w] = block_width
+    block[:h] = block_width
+    block[:path] = 'sprites/blocks4.png'
+    # block[:angle] = block[:angle]
+    # block[:a] = block[:a]
+    # block[:r] = block[:r]
   end
+
+  if args.state.grabbed_block
+
+    args.state.grabbed_block[:w] = block_width
+    args.state.grabbed_block[:h] = block_width
+    args.state.grabbed_block[:path] = 'sprites/blocks4.png'
+    args.state.grabbed_block[:angle] = 45
+    args.state.grabbed_block[:r] = 128
+    puts "added grabbd block #{args.state.grabbed_block}"
+    args.state.block_arr.delete(args.state.grabbed_block)
+    args.state.block_arr.push(args.state.grabbed_block)
+    args.outputs.sprites << args.state.grabbed_block
+    args.outputs.labels << [580, 350,
+                            "last grabbed #{args.state.grabbed_block}"]
+  end
+  args.outputs.sprites << args.state.block_arr
 end
 
 def handle_block_grab(args, block)
@@ -83,7 +109,10 @@ def handle_block_grab(args, block)
       h: 1
     }
     args.state.grabbed_block = block
+
+    return block
   end
+  nil
 end
 
 def handle_block_drag(args, block)
@@ -99,11 +128,11 @@ end
 
 def handle_block_collision_and_position(args, block)
   if block.y.positive?
-    collision = false
     args.state.block_arr.each do |other_block|
       next if other_block.equal?(block)
+
       if block.intersect_rect?(other_block)
-        collision = true
+        # collision = true
         break
       end
     end
