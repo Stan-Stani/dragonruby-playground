@@ -6,7 +6,7 @@ end
 
 def tick(args)
   # GTK.slowmo! 60
-
+  args.outputs.background_color = [0, 0, 0]
   block_width = 50
   # Initialize state
   args.state.rotation ||= 0
@@ -18,7 +18,8 @@ def tick(args)
   handle_mouse_click(args, block_width)
   handle_right_mouse_down(args)
   handle_right_mouse_held(args)
-  args.outputs.labels << [580, 400, "#{args.state.grabbed_block}"]
+  args.outputs.labels << { x: 580, y: 400, text: "#{args.state.grabbed_block}",
+                           r: 256, g: 256, b: 256 }
   draw_and_update_blocks(args, block_width)
   args.state.just_right_mouse_downed_rect = nil
 end
@@ -68,7 +69,8 @@ def draw_and_update_blocks(args, block_width)
     if args.state.grabbed_block
       puts "grabbed_block_id: #{args.state.grabbed_block.customData.id}"
     end
-    args.outputs.labels << [block.x, block.y, block.customData.id]
+    args.outputs.labels << { x: block.x, y: block.y, text: block.customData.id,
+                             r: 256, g: 256, b: 256 }
 
     handle_block_drag(args, block)
     handle_block_collision_and_position(args, block)
@@ -93,8 +95,8 @@ def draw_and_update_blocks(args, block_width)
     args.state.block_arr.delete(args.state.grabbed_block)
     args.state.block_arr.push(args.state.grabbed_block)
     args.outputs.sprites << args.state.grabbed_block
-    args.outputs.labels << [580, 350,
-                            "last grabbed #{args.state.grabbed_block}"]
+    args.outputs.labels << { x: 580, y: 350,
+                             text: "last grabbed #{args.state.grabbed_block}", r: 256, g: 256, b: 256 }
   end
   args.outputs.sprites << args.state.block_arr
 end
