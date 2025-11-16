@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'app/modules/paper'
+
 def random_hex_color
   '#' + 3.times.map { Numeric.rand(0..255).to_s(16).rjust(2, '0') }.join
 end
@@ -22,6 +24,103 @@ def tick(args)
                            r: 256, g: 256, b: 256 }
   draw_and_update_blocks(args, block_width)
   args.state.just_right_mouse_downed_rect = nil
+
+  handle_documents(args)
+end
+
+def handle_documents(args)
+  args.state.are_docus_initialized ||= false
+  args.state.shadow_and_docu_tuple_arr ||= []
+
+  # manage each document's associated shadow
+  if args.state.are_docus_initialized
+
+    args.state.shadow_and_docu_tuple_arr.each do |shadow, document|
+      shadow.x = document.x + shadow.custom_data.shadow_offset.x
+      shadow.y = document.y + shadow.custom_data.shadow_offset.y
+      shadow.angle = document.angle if document.angle
+
+      # keep shadow just behind document but over anything else
+      document_index = args.state.block_arr.index(document)
+      next unless document_index + 1 != args.state.block_arr.index(shadow)
+
+      args.state.block_arr.delete(shadow)
+      args.state.block_arr.insert(args.state.block_arr.index(document),
+                                  shadow)
+    end
+  else
+
+    add_document(args, { x: args.grid.w / 4,
+                         y: 100 })
+
+    add_document(args, { text:
+   "\
+Doggy Daycare
+
+Fido
+$75
+
+THANK YOU
+\
+",
+                         x: args.grid.w / 4,
+                         y: 100 })
+
+    add_document(args, { text:
+   "\
+Don't forget it this time!
+
+Your password is the first letter of your pets' names \
+in alphabetical order.\
+",
+                         x: args.grid.w / 4,
+                         y: 100 })
+
+    add_document(args, { text:
+   "\
+ Bird Baths R US
+
+
+ - Gold-inlaid bath: $200
+ - Plaque \"Loulou's Bath\": $100
+
+THANK YOU\
+",
+                         x: args.grid.w / 4,
+                         y: 100 })
+
+    add_document(args, { x: args.grid.w / 4,
+                         y: 100 })
+    add_document(args, { x: args.grid.w / 4,
+                         y: 100 })
+
+    add_document(args, { text:
+   "\
+Tongue of the Cat Grooming
+
+- Sylvestra $100
+
+THANK YOU
+",
+                         x: args.grid.w / 4,
+                         y: 100 })
+
+    add_document(args, { x: args.grid.w / 4,
+                         y: 100 })
+    add_document(args, { x: args.grid.w / 4,
+                         y: 100 })
+
+    args.state.are_docus_initialized = true
+  end
+end
+
+def add_document(args, make_document_args)
+  args.state.shadow_and_docu_tuple_arr << Paper.make_document(
+    args: args,
+    raise_on_overflow: false,
+    **make_document_args
+  )
+  args.state.block_arr.push(*args.state.shadow_and_docu_tuple_arr.flatten)
 end
 
 def handle_mouse_click(args, block_width)
@@ -34,7 +133,8 @@ def handle_mouse_click(args, block_width)
     y: y_place_at,
     w: block_width,
     h: block_width,
-    customData: { id: random_hex_color }
+    path: 'sprites/blocks4.png',
+    custom_data: { id: random_hex_color }
   }
 end
 
@@ -63,22 +163,21 @@ def handle_right_mouse_held(args)
   end
 end
 
-def draw_and_update_blocks(args, block_width)
+def draw_and_update_blocks(args, _block_width)
   args.state.block_arr.each do |block|
     handle_block_grab(args, block)
+
+    block[:custom_data] ||= {}
     if args.state.grabbed_block
-      puts "grabbed_block_id: #{args.state.grabbed_block.customData.id}"
+      puts "grabbed_block_id: #{args.state.grabbed_block.custom_data.id}"
     end
-    args.outputs.labels << { x: block.x, y: block.y, text: block.customData.id,
+    args.outputs.labels << { x: block.x, y: block.y, text: block.custom_data.id,
                              r: 256, g: 256, b: 256 }
 
     handle_block_drag(args, block)
     handle_block_collision_and_position(args, block)
     next if args.state.grabbed_block == block
 
-    block[:w] = block_width
-    block[:h] = block_width
-    block[:path] = 'sprites/blocks4.png'
     # block[:angle] = block[:angle]
     # block[:a] = block[:a]
     # block[:r] = block[:r]
@@ -86,11 +185,6 @@ def draw_and_update_blocks(args, block_width)
 
   if args.state.grabbed_block
 
-    args.state.grabbed_block[:w] = block_width
-    args.state.grabbed_block[:h] = block_width
-    args.state.grabbed_block[:path] = 'sprites/blocks4.png'
-    args.state.grabbed_block[:angle] = 45
-    args.state.grabbed_block[:r] = 128
     puts "added grabbd block #{args.state.grabbed_block}"
     args.state.block_arr.delete(args.state.grabbed_block)
     args.state.block_arr.push(args.state.grabbed_block)
@@ -111,10 +205,9 @@ def handle_block_grab(args, block)
       h: 1
     }
     args.state.grabbed_block = block
+    block.angle = [1, 2, -1, -2].sample
 
-    return block
   end
-  nil
 end
 
 def handle_block_drag(args, block)
@@ -125,6 +218,7 @@ def handle_block_drag(args, block)
               args.state.block_relative_grab_anchor_rect.x
     block.y = args.inputs.mouse.buttons.right.held.y -
               args.state.block_relative_grab_anchor_rect.y
+
   end
 end
 
